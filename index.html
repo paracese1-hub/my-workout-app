@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#172b4d">
+<title>내 운동 앱</title>
+<style>
+:root{--navy:#172b4d;--blue:#2f6fed;--bg:#f4f6fa;--card:#fff;--text:#182230;--muted:#64748b;--line:#e2e8f0;--green:#16835d}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;background:var(--bg);color:var(--text);padding-bottom:82px}
+header{background:var(--navy);color:#fff;padding:20px 16px 18px}header h1{font-size:22px;margin:0 0 5px}header p{font-size:13px;margin:0;color:#dbeafe}
+main{max-width:760px;margin:0 auto;padding:14px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#fff;border-top:1px solid var(--line);padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:5}
+nav button{flex:1;border:0;background:none;color:var(--muted);font-size:12px;padding:8px 2px;border-radius:10px}nav button.active{color:var(--blue);background:#edf3ff;font-weight:700}
+.panel{display:none}.panel.active{display:block}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #0f172a08}
+h2{font-size:18px;margin:2px 0 12px}h3{font-size:16px;margin:0 0 8px}.muted{color:var(--muted);font-size:13px}.row{display:flex;gap:8px;align-items:center}.between{justify-content:space-between}.grow{flex:1;min-width:0}
+button,.btn{border:0;border-radius:10px;background:var(--blue);color:#fff;padding:11px 13px;font-size:14px;font-weight:650;cursor:pointer}button.secondary{background:#eef2f7;color:#263449}button.danger{background:#fff0f0;color:#b42318}button.small{padding:7px 9px;font-size:12px}button:disabled{opacity:.4}
+input,select,textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;font:inherit;background:#fff;color:var(--text);margin-top:5px}
+label{display:block;font-size:13px;color:#475569;margin:8px 0}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.exercise{padding:12px 0;border-top:1px solid var(--line)}.exercise:first-child{border-top:0}.setrow{display:grid;grid-template-columns:34px 1fr 1fr 42px;gap:6px;align-items:center;margin:7px 0}.setrow input{margin:0;padding:9px 6px;text-align:center}.setrow .setnum{text-align:center;color:var(--muted);font-size:13px}.setrow .done{background:#e7f7ef;color:var(--green);padding:9px 0}
+.tag{display:inline-block;background:#edf3ff;color:#2454b8;padding:4px 8px;border-radius:999px;font-size:12px}.empty{text-align:center;padding:24px 10px;color:var(--muted)}
+#toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);background:#172b4d;color:#fff;padding:10px 15px;border-radius:12px;display:none;z-index:9;font-size:13px;max-width:90vw}
+@media(min-width:600px){header{padding-left:max(16px,calc((100% - 728px)/2));padding-right:max(16px,calc((100% - 728px)/2))}}
+</style>
+</head>
+<body>
+<header><h1>내 운동 앱</h1><p>나만의 루틴 · 세트별 기록 · 중량 변화</p></header>
+<main>
+<section id="home" class="panel active">
+ <div class="card"><h2>오늘 운동</h2><p class="muted">저장한 루틴을 골라 운동을 시작해 보세요.</p><div id="homeRoutines"></div></div>
+ <div class="card"><h2>최근 기록</h2><div id="recentHome"></div></div>
+ <div class="card"><h2>내 장비</h2><p>덤벨 2개(각 최대 25kg) · 각도조절 벤치</p><p class="muted">현재 기록은 이 브라우저에 저장됩니다. 브라우저 데이터 삭제 전 백업 기능을 이용하세요.</p><button class="secondary" onclick="exportData()">기록 백업 파일 저장</button> <button class="secondary" onclick="document.getElementById('importFile').click()">백업 불러오기</button><input id="importFile" type="file" accept=".json,application/json" hidden onchange="importData(event)"></div>
+</section>
+<section id="routines" class="panel">
+ <div class="card"><h2>내 루틴</h2><div id="routineList"></div><button onclick="newRoutine()">＋ 루틴 만들기</button></div>
+ <div class="card" id="routineEditor" hidden><h2 id="editorTitle">루틴 만들기</h2><label>루틴 이름<input id="routineName" placeholder="예: 가슴 · 삼두"></label><label>운동 추가<select id="exerciseSelect"></select></label><div class="row"><button class="secondary grow" onclick="addExerciseToDraft()">운동 추가</button><button class="secondary" onclick="customExercise()">직접 등록</button></div><div id="draftExercises"></div><div class="row"><button class="grow" onclick="saveRoutine()">루틴 저장</button><button class="secondary" onclick="cancelRoutineEdit()">취소</button></div></div>
+</section>
+<section id="workout" class="panel">
+ <div class="card"><h2 id="workoutTitle">운동 기록</h2><div id="workoutBody" class="empty">홈에서 루틴을 선택하면 기록을 시작할 수 있어요.</div></div>
+</section>
+<section id="history" class="panel">
+ <div class="card"><h2>운동 기록</h2><div id="historyList"></div></div>
+ <div class="card"><h2>운동별 중량 변화</h2><label>운동 선택<select id="historyExercise" onchange="renderExerciseProgress()"></select></label><div id="progressList"></div></div>
+</section>
+<section id="library" class="panel">
+ <div class="card"><h2>운동 목록</h2><p class="muted">덤벨과 벤치로 할 수 있는 기본 운동 목록입니다. 직접 운동을 등록할 수도 있어요.</p><div id="libraryList"></div><button onclick="customExercise()">＋ 운동 직접 등록</button></div>
+</section>
+</main>
+<nav>
+ <button class="active" data-tab="home" onclick="showTab('home')">홈</button>
+ <button data-tab="routines" onclick="showTab('routines')">내 루틴</button>
+ <button data-tab="workout" onclick="showTab('workout')">운동하기</button>
+ <button data-tab="history" onclick="showTab('history')">기록</button>
+ <button data-tab="library" onclick="showTab('library')">운동 목록</button>
+</nav>
+<div id="toast"></div>
+<script>
+const KEY='myWorkoutAppV1';
+const defaults=[
+'덤벨 벤치프레스','인클라인 덤벨 벤치프레스','덤벨 플라이','덤벨 풀오버',
+'원암 덤벨 로우','덤벨 벤트오버 로우','덤벨 루마니안 데드리프트','덤벨 스쿼트',
+'덤벨 런지','덤벨 숄더 프레스','덤벨 레터럴 레이즈','덤벨 리어 델트 플라이',
+'덤벨 컬','해머 컬','덤벨 오버헤드 트라이셉스 익스텐션','덤벨 킥백',
+'덤벨 카프 레이즈','덤벨 크런치','플랭크'
+];
+let data=loadData(),draft=[],editingId=null,current=null,restInterval=null,restLeft=0;
+function fresh(){return {exercises:defaults.map((name,i)=>({id:'e'+i,name})),routines:[],sessions:[]}}
+function loadData(){try{return {...fresh(),...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch(e){return fresh()}}
+function saveData(){localStorage.setItem(KEY,JSON.stringify(data))}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(s){let t=document.getElementById('toast');t.textContent=s;t.style.display='block';setTimeout(()=>t.style.display='none',2200)}
+function showTab(tab){document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===tab));document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===tab));if(tab==='home')renderHome();if(tab==='routines')renderRoutines();if(tab==='history')renderHistory();if(tab==='library')renderLibrary()}
+function fillExerciseSelect(){let s=document.getElementById('exerciseSelect');s.innerHTML=data.exercises.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}
+function renderHome(){let el=document.getElementById('homeRoutines');el.innerHTML=data.routines.length?data.routines.map(r=>`<div class="row between exercise"><div class="grow"><b>${esc(r.name)}</b><div class="muted">${r.exercises.length}개 운동</div></div><button onclick="startWorkout('${r.id}')">시작</button></div>`).join(''):'<div class="empty">아직 저장한 루틴이 없어요.<br>내 루틴에서 첫 루틴을 만들어 보세요.</div>';let last=data.sessions.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);document.getElementById('recentHome').innerHTML=last.length?last.map(s=>`<div class="exercise"><b>${esc(s.routineName)}</b><div class="muted">${esc(s.date)} · ${s.exercises.length}개 운동</div></div>`).join(''):'<p class="muted">아직 운동 기록이 없습니다.</p>'}
+function renderRoutines(){fillExerciseSelect();document.getElementById('routineList').innerHTML=data.routines.length?data.routines.map(r=>`<div class="exercise"><div class="row between"><div class="grow"><b>${esc(r.name)}</b><div class="muted">${r.exercises.map(x=>esc(data.exercises.find(e=>e.id===x.exerciseId)?.name||x.name||'운동')).join(' · ')}</div></div><div><button class="small" onclick="editRoutine('${r.id}')">수정</button> <button class="small danger" onclick="deleteRoutine('${r.id}')">삭제</button></div></div></div>`).join(''):'<div class="empty">저장한 루틴이 없습니다.</div>'}
+function newRoutine(){editingId=null;draft=[];document.getElementById('routineName').value='';document.getElementById('editorTitle').textContent='루틴 만들기';document.getElementById('routineEditor').hidden=false;renderDraft()}
+function editRoutine(id){let r=data.routines.find(x=>x.id===id);if(!r)return;editingId=id;draft=JSON.parse(JSON.stringify(r.exercises));document.getElementById('routineName').value=r.name;document.getElementById('editorTitle').textContent='루틴 수정';document.getElementById('routineEditor').hidden=false;renderDraft()}
+function cancelRoutineEdit(){document.getElementById('routineEditor').hidden=true}
+function addExerciseToDraft(){let id=document.getElementById('exerciseSelect').value;if(!id)return;draft.push({exerciseId:id,sets:3});renderDraft()}
+function renderDraft(){document.getElementById('draftExercises').innerHTML=draft.map((x,i)=>`<div class="exercise row"><div class="grow"><b>${esc(data.exercises.find(e=>e.id===x.exerciseId)?.name||x.name||'운동')}</b><label>목표 세트 수<input type="number" min="1" max="20" value="${x.sets||3}" onchange="draft[${i}].sets=Math.max(1,Number(this.value)||3)"></label></div><div class="row"><button class="small secondary" onclick="moveDraft(${i},-1)" ${i===0?'disabled':''}>↑</button><button class="small secondary" onclick="moveDraft(${i},1)" ${i===draft.length-1?'disabled':''}>↓</button><button class="small danger" onclick="draft.splice(${i},1);renderDraft()">삭제</button></div></div>`).join('')}
+function moveDraft(i,dir){let j=i+dir;if(j<0||j>=draft.length)return;[draft[i],draft[j]]=[draft[j],draft[i]];renderDraft()}
+function saveRoutine(){let name=document.getElementById('routineName').value.trim();if(!name){toast('루틴 이름을 입력해 주세요.');return}if(!draft.length){toast('운동을 하나 이상 추가해 주세요.');return}if(editingId){let r=data.routines.find(x=>x.id===editingId);r.name=name;r.exercises=JSON.parse(JSON.stringify(draft))}else data.routines.push({id:'r'+Date.now(),name,exercises:JSON.parse(JSON.stringify(draft))});saveData();document.getElementById('routineEditor').hidden=true;renderRoutines();renderHome();toast('루틴을 저장했어요.')}
+function deleteRoutine(id){if(!confirm('이 루틴을 삭제할까요?'))return;data.routines=data.routines.filter(r=>r.id!==id);saveData();renderRoutines();renderHome()}
+function customExercise(){let name=prompt('새 운동 이름을 입력해 주세요.');if(!name||!name.trim())return;if(data.exercises.some(e=>e.name.toLowerCase()===name.trim().toLowerCase())){toast('이미 등록된 운동이에요.');return}let e={id:'e'+Date.now(),name:name.trim()};data.exercises.push(e);saveData();renderLibrary();fillExerciseSelect();if(!document.getElementById('routineEditor').hidden){draft.push({exerciseId:e.id,sets:3});renderDraft()}toast('운동을 등록했어요.')}
+function startWorkout(id){let r=data.routines.find(x=>x.id===id);if(!r)return;let previous=data.sessions.filter(s=>s.routineId===id).sort((a,b)=>b.date.localeCompare(a.date))[0];current={id:'s'+Date.now(),routineId:id,routineName:r.name,date:new Date().toISOString().slice(0,10),startedAt:new Date().toISOString(),exercises:r.exercises.map(x=>{let ex=data.exercises.find(e=>e.id===x.exerciseId);let old=previous?.exercises.find(z=>z.exerciseId===x.exerciseId);return {exerciseId:x.exerciseId,name:ex?.name||x.name,sets:Array.from({length:x.sets||3},(_,i)=>({weight:old?.sets?.[i]?.weight??old?.sets?.[old.sets.length-1]?.weight??'',reps:old?.sets?.[i]?.reps??old?.sets?.[old.sets.length-1]?.reps??'',done:false})),memo:''}})};renderWorkout();showTab('workout')}
+function renderWorkout(){if(!current){document.getElementById('workoutBody').innerHTML='<div class="empty">홈에서 루틴을 선택하면 기록을 시작할 수 있어요.</div>';return}document.getElementById('workoutTitle').textContent=current.routineName;document.getElementById('workoutBody').innerHTML=`<div class="row between"><span class="tag">${esc(current.date)}</span><button class="secondary small" onclick="addSetExercise()">＋ 세트 추가</button></div>`+current.exercises.map((e,ei)=>`<div class="exercise"><h3>${esc(e.name)}</h3><div class="setrow muted"><span>세트</span><span>중량(kg)</span><span>횟수</span><span>완료</span></div>${e.sets.map((s,si)=>`<div class="setrow"><span class="setnum">${si+1}</span><input type="number" min="0" step="0.5" placeholder="kg" value="${esc(s.weight)}" onchange="updateSet(${ei},${si},'weight',this.value)"><input type="number" min="0" step="1" placeholder="회" value="${esc(s.reps)}" onchange="updateSet(${ei},${si},'reps',this.value)"><button class="small ${s.done?'done':'secondary'}" onclick="toggleSet(${ei},${si})">${s.done?'✓':'○'}</button></div>`).join('')}<button class="secondary small" onclick="addSet(${ei})">＋ 세트 추가</button><label>운동 메모<textarea rows="2" placeholder="컨디션, 자세 등" onchange="current.exercises[${ei}].memo=this.value">${esc(e.memo||'')}</textarea></label></div>`).join('')+`<div class="card"><h3>휴식 타이머</h3><div class="row"><button class="secondary" onclick="startRest(60)">60초</button><button class="secondary" onclick="startRest(90)">90초</button><button class="secondary" onclick="startRest(120)">120초</button></div><h2 id="timerDisplay">준비 완료</h2><button class="secondary small" onclick="stopRest()">타이머 중지</button></div><button style="width:100%;margin-top:8px" onclick="finishWorkout()">운동 기록 저장</button> <button class="secondary" style="width:100%;margin-top:8px" onclick="cancelWorkout()">운동 종료(저장 안 함)</button>`}
+function updateSet(ei,si,k,v){current.exercises[ei].sets[si][k]=v===''?'':Number(v)}
+function toggleSet(ei,si){current.exercises[ei].sets[si].done=!current.exercises[ei].sets[si].done;renderWorkout()}
+function addSet(ei){current.exercises[ei].sets.push({weight:current.exercises[ei].sets.at(-1)?.weight??'',reps:current.exercises[ei].sets.at(-1)?.reps??'',done:false});renderWorkout()}
+function addSetExercise(){let opts=data.exercises.map(e=>e.name).join('\n');let name=prompt('추가할 운동 이름을 입력하세요:\n'+opts);if(!name)return;let ex=data.exercises.find(e=>e.name.toLowerCase()===name.trim().toLowerCase());if(!ex){if(!confirm('목록에 없는 운동입니다. 새 운동으로 등록할까요?'))return;ex={id:'e'+Date.now(),name:name.trim()};data.exercises.push(ex);saveData()}current.exercises.push({exerciseId:ex.id,name:ex.name,sets:[{weight:'',reps:'',done:false},{weight:'',reps:'',done:false},{weight:'',reps:'',done:false}],memo:''});renderWorkout()}
+function finishWorkout(){if(!current)return;if(!confirm('현재 운동 기록을 저장할까요?'))return;stopRest();data.sessions.push(current);saveData();current=null;renderWorkout();renderHome();showTab('history');toast('운동 기록을 저장했어요.')}
+function cancelWorkout(){if(confirm('현재 기록을 저장하지 않고 종료할까요?')){stopRest();current=null;renderWorkout();showTab('home')}}
+function startRest(sec){stopRest();restLeft=sec;updateTimer();restInterval=setInterval(()=>{restLeft--;updateTimer();if(restLeft<=0){stopRest();if(navigator.vibrate)navigator.vibrate([200,100,200]);toast('휴식 종료! 다음 세트 준비!')}},1000)}
+function updateTimer(){let e=document.getElementById('timerDisplay');if(e)e.textContent=Math.floor(restLeft/60)+':'+String(restLeft%60).padStart(2,'0')}
+function stopRest(){if(restInterval)clearInterval(restInterval);restInterval=null;restLeft=0;let e=document.getElementById('timerDisplay');if(e)e.textContent='준비 완료'}
+function renderHistory(){let sessions=data.sessions.slice().sort((a,b)=>b.date.localeCompare(a.date));document.getElementById('historyList').innerHTML=sessions.length?sessions.map((s,i)=>`<div class="exercise"><div class="row between"><div><b>${esc(s.routineName)}</b><div class="muted">${esc(s.date)} · ${s.exercises.length}개 운동</div></div><button class="small danger" onclick="deleteSession('${s.id}')">삭제</button></div>${s.exercises.map(e=>`<div class="muted">${esc(e.name)}: ${e.sets.map(x=>`${x.weight||'-'}kg × ${x.reps||'-'}회`).join(' / ')}</div>`).join('')}</div>`).join(''):'<div class="empty">저장된 기록이 아직 없어요.</div>';let names=[...new Set(data.sessions.flatMap(s=>s.exercises.map(e=>e.name)))];let sel=document.getElementById('historyExercise');let old=sel.value;sel.innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join('');if(names.includes(old))sel.value=old;renderExerciseProgress()}
+function renderExerciseProgress(){let name=document.getElementById('historyExercise').value;let rows=[];data.sessions.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(s=>s.exercises.filter(e=>e.name===name).forEach(e=>{let valid=e.sets.filter(x=>x.weight!==''&&x.reps!=='');if(valid.length)rows.push({date:s.date,max:Math.max(...valid.map(x=>Number(x.weight)||0)),sets:valid.length})}));document.getElementById('progressList').innerHTML=rows.length?rows.map(r=>`<div class="exercise row between"><div><b>${esc(r.date)}</b><div class="muted">${r.sets}세트 기록</div></div><span class="tag 최고 ${r.max}kg">${r.max} kg</span></div>`).join(''):'<p class="muted">선택한 운동의 중량 기록이 아직 없습니다.</p>'}
+function deleteSession(id){if(!confirm('이 운동 기록을 삭제할까요?'))return;data.sessions=data.sessions.filter(s=>s.id!==id);saveData();renderHistory();renderHome()}
+function renderLibrary(){document.getElementById('libraryList').innerHTML=data.exercises.map(e=>`<div class="exercise row between"><span>${esc(e.name)}</span><button class="small secondary" onclick="renameExercise('${e.id}')">이름 수정</button></div>`).join('')}
+function renameExercise(id){let e=data.exercises.find(x=>x.id===id);if(!e)return;let n=prompt('운동 이름 수정',e.name);if(!n||!n.trim())return;e.name=n.trim();saveData();renderLibrary();renderRoutines();toast('운동 이름을 수정했어요.')}
+function exportData(){let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='내운동앱-백업-'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(a.href);toast('백업 파일을 저장했어요.')}
+function importData(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!Array.isArray(x.exercises)||!Array.isArray(x.routines)||!Array.isArray(x.sessions))throw 0;if(!confirm('현재 기록을 백업 파일 내용으로 바꿀까요?'))return;data=x;saveData();renderHome();renderRoutines();renderLibrary();renderHistory();toast('백업을 불러왔어요.')}catch(e){alert('올바른 내 운동 앱 백업 파일이 아닙니다.')}};r.readAsText(f);ev.target.value=''}
+renderHome();renderRoutines();renderLibrary();renderHistory();
+</script>
+</body>
+</html>
